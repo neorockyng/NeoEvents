@@ -361,7 +361,7 @@ class InstallerController extends Controller
                 'database_host'     => 'required',
                 'database_name'     => 'required',
                 'database_username' => 'required',
-                'database_password' => 'required'
+                'database_password' => '' //Remove password requirement for db setup
             ]);
             return true;
         } catch (Exception $e) {

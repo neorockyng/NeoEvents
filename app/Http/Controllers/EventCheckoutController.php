@@ -31,6 +31,9 @@ use Omnipay;
 use PDF;
 use PhpSpec\Exception\Exception;
 use Validator;
+use App\Services\UserAccountService;
+use Illuminate\Support\Facades\Auth;
+use App\Mail\UserAccountCreated;
 
 class EventCheckoutController extends Controller
 {
@@ -540,6 +543,14 @@ class EventCheckoutController extends Controller
             $attendee_increment = 1;
             $ticket_questions = isset($request_data['ticket_holder_questions']) ? $request_data['ticket_holder_questions'] : [];
 
+            // Call the UserAccountService to create user and account
+            $userAccountService = new UserAccountService();
+            $userData = $userAccountService->createUserAndLogin([
+                'email' => sanitise($request_data['order_email']),
+                'first_name' => sanitise($request_data['order_first_name']),
+                'last_name' => sanitise($request_data['order_last_name']),
+            ]);
+
             /*
              * Create the order
              */
@@ -562,7 +573,7 @@ class EventCheckoutController extends Controller
             $order->booking_fee = $ticket_order['booking_fee'];
             $order->organiser_booking_fee = $ticket_order['organiser_booking_fee'];
             $order->discount = 0.00;
-            $order->account_id = $event->account->id;
+            $order->account_id = $userData['account']->id; //$event->account->id;
             $order->event_id = $ticket_order['event_id'];
             $order->is_payment_received = isset($request_data['pay_offline']) ? 0 : 1;
 
@@ -713,6 +724,12 @@ class EventCheckoutController extends Controller
         //forget the order in the session
         session()->forget('ticket_order_' . $event->id);
 
+        // Log the user in (ticket buyer)
+        Auth::login($userData['user']);
+
+        // Notify user of their new account
+        // Mail::to($user->email)->send(new UserAccountCreated($user, $password));
+
         /*
          * Remove any tickets the user has reserved after they have been ordered for the user
          */
@@ -721,17 +738,18 @@ class EventCheckoutController extends Controller
         // Queue up some tasks - Emails to be sent, PDFs etc.
         // Send order notification to organizer
         Log::debug('Queueing Order Notification Job');
-        SendOrderNotificationJob::dispatch($order, $orderService);
+        // Start here - Temporarily commentted email notification
+        // SendOrderNotificationJob::dispatch($order, $orderService);
         // Send order confirmation to ticket buyer
         Log::debug('Queueing Order Tickets Job');
-        SendOrderConfirmationJob::dispatch($order, $orderService);
+        // SendOrderConfirmationJob::dispatch($order, $orderService);
         // Send tickets to attendees
         Log::debug('Queueing Attendee Ticket Jobs');
-        foreach ($order->attendees as $attendee) {
-            SendOrderAttendeeTicketJob::dispatch($attendee);
-            Log::debug('Queueing Attendee Ticket Job Done');
-        }
-
+        // foreach ($order->attendees as $attendee) {
+        //     SendOrderAttendeeTicketJob::dispatch($attendee);
+        //     Log::debug('Queueing Attendee Ticket Job Done');
+        // }
+        // End here
         if ($return_json) {
             return response()->json([
                 'status'      => 'success',
@@ -759,6 +777,12 @@ class EventCheckoutController extends Controller
      */
     public function showOrderDetails(Request $request, $order_reference)
     {
+        // Check if the user is logged in
+        if (!auth()->check()) {
+            // Redirect to login page or show a message
+            return redirect()->route('login')->with('error', 'You need to log in to view your order details.');
+        }
+
         $order = Order::where('order_reference', '=', $order_reference)->first();
 
         if (!$order) {
@@ -792,11 +816,19 @@ class EventCheckoutController extends Controller
      */
     public function showOrderTickets(Request $request, $order_reference)
     {
+        // Check if the user is logged in
+        if (!auth()->check()) {
+            // Redirect to login page or show a message
+            return redirect()->route('login')->with('error', 'You need to log in to view your ticket(s).');
+        }
+
         $order = Order::where('order_reference', '=', $order_reference)->first();
 
         if (!$order) {
             abort(404);
         }
+        $orderService = new OrderService($order->amount, $order->organiser_booking_fee, $order->event);
+        $orderService->calculateFinalCosts();
         $images = [];
         $imgs = $order->event->images;
         foreach ($imgs as $img) {
@@ -805,6 +837,7 @@ class EventCheckoutController extends Controller
 
         $data = [
             'order'     => $order,
+            'orderService' => $orderService,
             'event'     => $order->event,
             'tickets'   => $order->event->tickets,
             'attendees' => $order->attendees,
@@ -814,9 +847,14 @@ class EventCheckoutController extends Controller
         ];
 
         if ($request->get('download') == '1') {
+            // For linux
             return PDF::html('Public.ViewEvent.Partials.PDFTicket', $data, 'Tickets');
+            
+            // For Windows (localhost)
+        //     return PDF::loadView('Public.ViewEvent.Partials.PDFTicket', $data)
+        //    ->download('Tickets.pdf');
         }
-        return view('Public.ViewEvent.Partials.PDFTicket', $data);
+        return view('Public.ViewEvent.TicketPageView', $data);
     }
 
 }

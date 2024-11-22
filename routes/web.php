@@ -38,6 +38,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserLoginController;
 use App\Http\Controllers\UserLogoutController;
 use App\Http\Controllers\UserSignupController;
+use App\Http\Controllers\UserDashboardController;
 
 Route::group(
     [
@@ -654,6 +655,21 @@ Route::group(
             Route::get('{event_id}/promote',
                 [EventPromoteController::class, 'showPromote']
             )->name('showEventPromote');
+        });
+        // User (ticket buyer)
+        Route::group(['prefix' => 'user'], function () {
+            // Dashboard
+            Route::get('{user_id}/dashboard/',
+                [UserDashboardController::class, 'showDashboard']
+            )->name('showUserDashboard');
+            // Tickets
+            Route::get('{user_id}/tickets/',
+                [UserDashboardController::class, 'showTickets']
+            )->name('showUserTickets');
+
+            Route::get('{user_id}/',
+                [UserDashboardController::class, 'redirectToDashboard']
+            );
         });
     });
 

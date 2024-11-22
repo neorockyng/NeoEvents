@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Redirect;
 use View;
 use Services\Captcha\Factory;
+use App\Models\Order;
 
 class UserLoginController extends Controller
 {
@@ -77,6 +78,18 @@ class UserLoginController extends Controller
                 ->with(['message' => trans('Controllers.login_password_incorrect'), 'failed' => true])
                 ->withInput();
         }
+
+        // Get the authenticated user
+        $user = Auth::user();
+        $order = Order::where('account_id', $user->account_id)->first();
+        // Check the user's role and redirect accordingly
+        if ($user->role === 'User') {
+            return redirect()->route('ShowOrderDetails', [
+                'is_embedded'     => 1, //$this->is_embedded,
+                'order_reference' => $order['order_reference'],
+            ]);
+        }
+
         return redirect()->intended(route('showSelectOrganiser'));
     }
 }

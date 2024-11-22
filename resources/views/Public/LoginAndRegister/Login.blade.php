@@ -19,6 +19,13 @@
                         </ul>
                     @endif
 
+                    @if(Session::has('error'))
+                        <h4 class="text-danger mt0">@lang("basic.whoops")! </h4>
+                        <ul class="list-group">
+                            <li class="list-group-item">{{ Session::get('error') }}</li>
+                        </ul>
+                    @endif
+
                     <div class="form-group">
                         {!! Form::label('email', trans("User.email"), ['class' => 'control-label']) !!}
                         {!! Form::text('email', null, ['class' => 'form-control', 'autofocus' => true]) !!}

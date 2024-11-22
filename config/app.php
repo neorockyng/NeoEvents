@@ -193,6 +193,9 @@ return [
         App\Providers\HelpersServiceProvider::class,
         Nitmedia\Wkhtml2pdf\L5Wkhtml2pdfServiceProvider::class,
 
+        // html to pdf for windows - should be removed when deployed
+        Barryvdh\Snappy\ServiceProvider::class,
+
     ],
 
     /*
@@ -249,6 +252,9 @@ return [
         'PDF'          => Nitmedia\Wkhtml2pdf\Facades\Wkhtml2pdf::class,
         'Utils'        => App\Attendize\Utils::class,
         'Excel'        => Maatwebsite\Excel\Facades\Excel::class,
+
+        // Pdf for windows
+        'PDF' => Barryvdh\Snappy\Facades\SnappyPdf::class,
     ],
 
 ];
